@@ -1,0 +1,190 @@
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────
+   VISYRA · Design System v6
+   Performance-first, GPU-composited animations
+   ──────────────────────────────────────────── */
+
+:root {
+  --canvas:        #f7f7f9;
+  --white:         #ffffff;
+  --ink:           #09090e;
+  --muted:         #64748b;
+  --muted-2:       #94a3b8;
+  --violet:        #7c3aed;
+  --violet-deep:   #5b21b6;
+  --violet-mid:    #6d28d9;
+  --violet-bright: #8b5cf6;
+  --magenta:       #c026d3;
+  --lavender:      #ede9fe;
+  --card-dark:     #0c0c14;
+  --border:        rgba(0,0,0,0.07);
+  --sh-sm:  0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.04);
+  --sh-md:  0 4px 16px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04);
+  --sh-dark:0 8px 24px rgba(0,0,0,0.22);
+}
+
+/* ── Reset ─────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+body {
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: -apple-system, "SF Pro Text", "Inter", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  padding-top:   env(safe-area-inset-top);
+  padding-left:  env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* ── Aurora keyframes — transform ONLY, no opacity change ──────
+   Using translate3d() keeps everything on the compositor thread.
+   No layout. No paint. Pure GPU.
+   ────────────────────────────────────────────────────────────── */
+@keyframes aurora-a {
+  0%   { transform: translate3d(0,    0,    0) scale(1);    }
+  30%  { transform: translate3d(3%,   4%,   0) scale(1.05); }
+  65%  { transform: translate3d(-2%,  2%,   0) scale(0.97); }
+  100% { transform: translate3d(0,    0,    0) scale(1);    }
+}
+@keyframes aurora-b {
+  0%   { transform: translate3d(0,    0,    0) scale(1);    }
+  40%  { transform: translate3d(-3%,  3%,   0) scale(1.07); }
+  80%  { transform: translate3d(1%,  -2%,   0) scale(0.95); }
+  100% { transform: translate3d(0,    0,    0) scale(1);    }
+}
+@keyframes aurora-c {
+  0%   { transform: translate3d(0,    0,    0) scale(1);    }
+  50%  { transform: translate3d(3%,  -3%,   0) scale(1.06); }
+  100% { transform: translate3d(0,    0,    0) scale(1);    }
+}
+
+/* Float animation — used for hero image */
+@keyframes float-y {
+  0%,100% { transform: translate3d(0, 0,      0) rotate(0deg);   }
+  40%     { transform: translate3d(0, -13px,  0) rotate(1.1deg);  }
+  70%     { transform: translate3d(0, -8px,   0) rotate(-0.7deg); }
+}
+
+/* Spinner — used for inference loader */
+@keyframes spin-cw  { to { transform: rotate(360deg); } }
+@keyframes spin-ccw { to { transform: rotate(-360deg); } }
+
+/* Pulse dot */
+@keyframes pulse-dot {
+  0%,100% { box-shadow: 0 0 0 0   rgba(124,58,237,0.4); }
+  60%     { box-shadow: 0 0 0 6px rgba(124,58,237,0);   }
+}
+
+/* Shimmer — loading bar */
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
+/* Section reveal — used for initial whileInView */
+@keyframes fade-up {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); }
+  to   { opacity: 1; transform: translate3d(0,  0px, 0); }
+}
+
+/* ── Animation utility classes ─────────────── */
+.bg-aurora-a {
+  animation: aurora-a 22s cubic-bezier(0.45,0.05,0.55,0.95) infinite;
+}
+.bg-aurora-b {
+  animation: aurora-b 28s cubic-bezier(0.45,0.05,0.55,0.95) infinite;
+  animation-delay: -10s;
+}
+.bg-aurora-c {
+  animation: aurora-c 34s cubic-bezier(0.45,0.05,0.55,0.95) infinite;
+  animation-delay: -18s;
+}
+.anim-float {
+  animation: float-y 8s ease-in-out infinite;
+}
+.anim-spin-cw  { animation: spin-cw  1.4s linear infinite; }
+.anim-spin-ccw { animation: spin-ccw 1.0s linear infinite; }
+.anim-pulse-dot { animation: pulse-dot 2.4s ease-out infinite; }
+.shimmer-bar {
+  background: linear-gradient(90deg, transparent, rgba(124,58,237,0.10), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* ── Reduced motion — accessibility + perf ── */
+@media (prefers-reduced-motion: reduce) {
+  .bg-aurora-a, .bg-aurora-b, .bg-aurora-c,
+  .anim-float, .anim-spin-cw, .anim-spin-ccw,
+  .anim-pulse-dot, .shimmer-bar {
+    animation: none !important;
+  }
+  * { transition-duration: 0.01ms !important; }
+}
+
+/* ── Mobile performance ─────────────────────
+   On mobile: extend aurora durations so GPUs aren't working overtime
+   ─────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .bg-aurora-a { animation-duration: 44s; }
+  .bg-aurora-b { animation-duration: 56s; }
+  .bg-aurora-c { animation-duration: 68s; }
+  .hide-mobile { display: none !important; }
+}
+
+/* ── Surface styles ──────────────────────── */
+.glass {
+  background: rgba(255,255,255,0.72);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid rgba(255,255,255,0.88);
+}
+/* iOS Safari — reduce blur to avoid jank */
+@supports (-webkit-touch-callout: none) {
+  .glass {
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+}
+
+/* ── Typography ──────────────────────────── */
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #7c3aed;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+.section-title {
+  font-size: clamp(1.65rem, 3vw, 2.35rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #09090e;
+  line-height: 1.1;
+}
+.section-sub {
+  font-size: 13.5px;
+  color: #64748b;
+  line-height: 1.68;
+}
+
+/* ── Scrollbar ───────────────────────────── */
+::-webkit-scrollbar       { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.22); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(124,58,237,0.42); }
+
+/* ── Focus ───────────────────────────────── */
+:focus-visible {
+  outline: 2px solid #7c3aed;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
