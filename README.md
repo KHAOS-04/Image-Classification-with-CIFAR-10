@@ -19,7 +19,7 @@
 
 **Visyra** is the frontend prototype for an AI-powered image classification system built on the CIFAR-10 dataset. It presents all required capstone deliverables — evaluation metrics, confusion matrix, validation runs, and live inference — in a polished, startup-quality web interface.
 
-This is a **frontend-only prototype**. It uses realistic mock data that mirrors the actual output of a trained CNN, and is architected to accept a real FastAPI/TensorFlow backend with minimal changes.
+This is a **project**. Uses trained data that mirrors the actual output of a trained CNN, and is architected to accept a real FastAPI/TensorFlow backend with minimal changes.
 
 ---
 
