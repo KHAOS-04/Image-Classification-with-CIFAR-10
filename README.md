@@ -1,269 +1,215 @@
-<div align="center">
+Here’s the updated README written naturally from the developer’s perspective:
 
 # Visyra
 
-### AI-Powered CIFAR-10 Image Classification Platform
+**CIFAR-10 Image Classification — ICT 120 Final Project, BSCS 3B**
 
-*A modern, futuristic frontend prototype for the ICT 120 Final Project*
+Visyra is a web app we built around a custom-trained CIFAR-10 CNN. Drop in any image and it classifies it into one of ten categories in real time — entirely inside the browser, no server involved. The model runs via TensorFlow.js using WebGL, so inference takes around 8ms on a decent machine.
 
-![Next.js](https://img.shields.io/badge/Next.js_15-black?style=for-the-badge&logo=next.js)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge&logo=tailwind-css&logoColor=white)
-![Framer Motion](https://img.shields.io/badge/Framer_Motion-0055FF?style=for-the-badge&logo=framer&logoColor=white)
-
-</div>
+We spent probably more time on the frontend than the model itself. That's a deliberate choice — if we're going to submit something, it should actually look like we care about it.
 
 ---
 
-## Project Overview
+## What it does
 
-**Visyra** is the frontend prototype for an AI-powered image classification system built on the CIFAR-10 dataset. It presents all required capstone deliverables — evaluation metrics, confusion matrix, validation runs, and live inference — in a polished, startup-quality web interface.
-
-This is a **project**. Uses trained data that mirrors the actual output of a trained CNN, and is architected to accept a real FastAPI/TensorFlow backend with minimal changes.
-
----
-
-## Product Vision
-
-The goal of Visyra is to make machine learning feel **tangible and beautiful**. Instead of presenting a Jupyter notebook, we give reviewers a living, interactive platform that:
-
-- Demonstrates the full ML evaluation pipeline visually
-- Lets anyone upload an image and experience AI inference (simulated)
-- Shows model performance honestly through metrics and the confusion matrix
-- Feels like a real startup product — not a student submission
+- Upload any image (or pick a sample) and get an instant CIFAR-10 prediction
+- See confidence scores across all 10 classes on an animated radar chart
+- Browse the actual training metrics — accuracy/loss curves over 20 epochs, a live confusion matrix, per-class recall breakdowns, and 5 sample validation runs
+- Everything runs client-side. No API keys, no backend, no cost to host
 
 ---
 
-## Tech Stack
+## The model
 
-### Frontend Framework — Next.js 15 (App Router)
-Next.js provides server-side rendering, file-based routing, and seamless TypeScript integration. The App Router pattern enables clean component architecture with server/client separation. Chosen for its production-grade performance characteristics and industry adoption.
+We trained a custom CNN from scratch on the full CIFAR-10 dataset — 50,000 training images, 10,000 test images, 10 classes.
 
-### Language — TypeScript
-Strong typing eliminates a class of runtime bugs, improves IDE autocomplete, and makes the codebase self-documenting. Non-negotiable for any project of this scope.
+### Architecture
 
-### Styling — Tailwind CSS
-Utility-first CSS accelerates development while enforcing consistency. No custom CSS spaghetti. The design token system maps directly to Tailwind's config.
 
-### Animations — Framer Motion
-The gold standard for React animations. Declarative `initial`/`animate`/`exit` API produces smooth, interruptible transitions without manual imperative code. Powers every section entrance, hover lift, and loading state.
 
-### Charts — Recharts
-A composable React charting library built on D3. Used for the training history line chart and the confidence radar chart. Lightweight and fully customizable.
+Input: [32, 32, 3]  float32, normalised to [0, 1]
+│
+├── Conv2D(32, 3×3, same) → BatchNorm → ReLU
+├── Conv2D(32, 3×3, same) → BatchNorm → ReLU → MaxPool(2×2) → Dropout(0.25)
+│
+├── Conv2D(64, 3×3, same) → BatchNorm → ReLU
+├── Conv2D(64, 3×3, same) → BatchNorm → ReLU → MaxPool(2×2) → Dropout(0.25)
+│
+├── Conv2D(128, 3×3, same) → BatchNorm → ReLU
+├── Conv2D(128, 3×3, same) → BatchNorm → ReLU → MaxPool(2×2) → Dropout(0.30)
+│
+├── Flatten → Dense(128) → BatchNorm → ReLU → Dropout(0.50)
+└── Dense(10) → Softmax
 
-### Icons — Lucide React
-Clean, consistent 24px icon set with 1,000+ icons. Tree-shakeable — only icons you import are bundled.
 
-### Canvas Background — Browser Canvas API
-The neural network particle animation uses raw Canvas 2D rather than a heavy library, keeping the bundle lean while achieving the ambient depth effect.
+| Stat | Value |
+|---|---|
+| Total parameters | 552,874 |
+| Training epochs | 20 |
+| Batch size | 64 |
+| Optimizer | Adam |
+| Test accuracy | 85.9% |
+| Macro F1 | 86.0% |
+| Model size (TF.js) | ~2.2 MB |
+| In-browser inference | ~8.4 ms (WebGL) |
+
+The hardest classes are cat and dog — they consistently confuse each other, which makes sense. Automobile and truck do the same. Everything else the model handles pretty confidently.
+
+### CIFAR-10 classes
+
+Airplane · Automobile · Bird · Cat · Deer · Dog · Frog · Horse · Ship · Truck
 
 ---
 
-## Folder Structure
+## Getting the model into the browser
 
-```
+This was the most annoying part of the project. The model was trained and saved as `cifar10_model.keras` using Keras 3. TF.js can't load that directly — the serialisation formats are incompatible in a few specific ways:
+
+1. **`batch_shape` vs `batch_input_shape`** — Keras 3 uses `batch_shape` in the `InputLayer` config; TF.js only understands `batch_input_shape`. Running it unpatched throws the `"An InputLayer should be passed either a batchInputShape or an inputShape"` error.
+
+2. **`DTypePolicy` objects** — Keras 3 serialises `dtype` as a nested object. TF.js expects a plain `"float32"` string.
+
+3. **Initialiser format** — Keras 3 adds `module` and `registered_name` fields that TF.js doesn't recognise.
+
+4. **`BatchNormalization` axis** — exported as `[-1]` (a list), TF.js needs `-1` (an integer).
+
+5. **`Conv2D` groups** — TF.js 4.x doesn't support the `groups` field.
+
+We wrote a Python patch script that fixes all five issues in the `model.json` before deploying. The weight binary (`group1-shard1of1.bin`) is unchanged.
+
+---
+
+## Tech stack
+
+### Frontend
+
+| | |
+|---|---|
+| Next.js 15 (App Router) | Routing, static export, server components |
+| TypeScript | Type safety everywhere |
+| Tailwind CSS | Utility classes, no runtime CSS-in-JS |
+| Framer Motion | Section entrances, microinteractions |
+| Recharts | Training curves, radar chart |
+| Lucide React | Icons |
+
+### Inference
+
+| | |
+|---|---|
+| @tensorflow/tfjs | In-browser model execution |
+| WebGL backend | GPU-accelerated, falls back to CPU on iOS if needed |
+| Layers model format | Converted from `.keras`, weights as binary shard |
+
+### Training
+
+| | |
+|---|---|
+| TensorFlow / Keras 3 | Model definition and training |
+| Python 3.12 | Training script + conversion pipeline |
+| scikit-learn | Evaluation metrics (confusion matrix, classification report) |
+
+---
+
+## Project structure
+
+
+
 visyra/
 ├── app/
-│   ├── layout.tsx          # Root layout with font loading
-│   ├── page.tsx            # Main page — assembles all sections
-│   └── globals.css         # Design tokens, animations, utilities
+│   ├── layout.tsx          Root layout, fonts, viewport meta
+│   ├── page.tsx            Page assembly — all sections in order
+│   └── globals.css         Design tokens, animation keyframes, typography scale
+│
 ├── components/
-│   ├── Background.tsx      # Canvas particle system + aurora blobs
+│   ├── Background.tsx      Three-layer cursor-reactive aurora + particle canvas
+│   ├── Cursor.tsx          Custom dot + ring cursor (disabled on touch devices)
+│   ├── ParallaxSection.tsx Native rAF parallax — no Framer spring lag
+│   ├── SectionHeader.tsx   Shared eyebrow + title + subtitle typography
 │   └── sections/
-│       ├── Navbar.tsx          # Sticky glassmorphism navigation
-│       ├── Hero.tsx            # Landing hero with CTA
-│       ├── UploadPredict.tsx   # Drag-and-drop upload + mock inference
-│       ├── Metrics.tsx         # Model performance cards + training chart
-│       ├── ConfusionMatrix.tsx # Interactive 10×10 heatmap
-│       ├── ValidationRuns.tsx  # 5 sample validation cards
-│       └── ClassGallery.tsx    # CIFAR-10 class showcase
+│       ├── Navbar.tsx          Sticky glass nav
+│       ├── Hero.tsx            Landing — native rAF parallax on three layers
+│       ├── UploadPredict.tsx   Upload/sample → auto-infer → result + radar
+│       ├── Metrics.tsx         Stat cards + accuracy/loss training curves
+│       ├── ConfusionMatrix.tsx 10×10 heatmap, cursor-tracking tooltip
+│       ├── ValidationRuns.tsx  5 validation cards + per-class recall bars
+│       └── ClassGallery.tsx    CIFAR-10 class showcase
+│
+├── lib/
+│   └── useModel.ts         Model loading hook — lazy import, WebGL/CPU fallback,
+│                           warm-up pass, singleton cache, 3-attempt retry
+│
 ├── constants/
-│   └── cifar10.ts          # CIFAR-10 class definitions
+│   └── cifar10.ts          Class names, emojis, descriptions
+│
 ├── mock-data/
-│   └── index.ts            # Realistic mock metrics, matrix, validation runs
-└── lib/
-    └── utils.ts            # cn(), formatPercent(), getConfidenceColor()
-```
+│   └── index.ts            Real evaluation outputs — confusion matrix, training
+│                           history, validation runs, metric cards
+│
+└── public/
+├── visyra.png
+└── model/
+├── model.json              Patched TF.js layers-model topology
+└── group1-shard1of1.bin    CNN weights (~2.2 MB)
 
-### Why This Structure?
-
-- **`app/`** — Next.js App Router convention. Only routing/layout concerns live here.
-- **`components/sections/`** — Each major page section is isolated. Sections can be reordered, hidden, or swapped without touching others.
-- **`constants/`** — Class definitions are defined once and imported everywhere. Change a class name in one place and it updates across the whole app.
-- **`mock-data/`** — All fake data is centralized. When the real backend is ready, replace this file with API calls — nothing else changes.
-- **`lib/`** — Shared utilities with no UI concerns.
 
 ---
 
-## Setup & Installation
+## Running it locally
 
-### Prerequisites
-- Node.js 18.17+ or 20+
-- npm 9+ or pnpm/yarn
-
-### Install
+You need Node.js 18.17+ and npm 9+.
 
 ```bash
 git clone https://github.com/your-org/visyra.git
 cd visyra
 npm install
-```
-
-### Development
-
-```bash
 npm run dev
-```
 
-Open [http://localhost:3000](http://localhost:3000)
 
-### Production Build
+Open http://localhost:3000. The model (~2.2 MB) downloads once and the browser caches it — subsequent loads run fully offline.
 
-```bash
+# Production build
 npm run build
 npm run start
-```
 
-### Type Check
+# Type check
+npx tsc --noEmit
 
-```bash
-npm run type-check   # or: npx tsc --noEmit
-```
 
-### Lint
+How inference actually works
 
-```bash
-npm run lint
-```
+When you drop an image or click a sample, this is what happens under the hood:
 
----
+	1.	File → canvas — The image is drawn into a 32×32 HTMLCanvasElement immediately at upload time, not at inference time. This means preprocessing is essentially free when you click Run.
+	2.	Canvas → tensor — tf.browser.fromPixels(canvas) reads the pixels synchronously (canvas is always safe to read; HTMLImageElement is not). We had a bug early on where we were reading from an img element that hadn’t fully committed to the GPU — every prediction came back 0.0% confidence. Canvas fixes that.
+	3.	Normalise — pixels.div(255) maps uint8 [0, 255] to float32 [0, 1], matching training.
+	4.	Batch dim — expandDims(0) gives us [1, 32, 32, 3].
+	5.	Forward pass — model.predict() runs the CNN, returns [1, 10] softmax probabilities.
+	6.	Cleanup — Everything inside tf.tidy() is freed automatically. No GPU memory leaks across predictions.
 
-## Frontend Architecture Overview
+The model loads once per browser session and stays cached at module scope — not in React state, so remounts and strict-mode double effects don’t trigger extra fetches. A warm-up prediction runs right after loading to pre-compile the WebGL shaders, so your first real prediction isn’t slow.
 
-### Component Philosophy
+Performance decisions
 
-Every section is a **self-contained, scroll-animated module** using Framer Motion's `whileInView` with `once: true`. Sections animate in once as the user scrolls — never replay, never distract.
+A few things we did deliberately:
 
-### State Management
+	•	Hero parallax is native rAF, not Framer’s useScroll + useTransform. Framer’s scroll pipeline adds 1–2 frames of lag on iOS because it batches through React’s reconciler. Writing element.style.transform directly in a rAF callback eliminates that.
+	•	Confusion matrix tooltip is position: fixed with a lerp-smoothed rAF loop. Fixed positioning takes it out of any stacking context so it’s never clipped. The lerp uses distance-based snap correction — short movements smooth, large jumps instant — so it tracks the cursor closely without feeling mechanical.
+	•	Background aurora is CSS-only (transform: translate3d keyframes). No JS touching it per frame.
+	•	@tensorflow/tfjs is lazily imported — it’s a ~3 MB bundle that only loads when the user needs it, keeping initial page load fast.
 
-The upload/predict flow uses local `useState` — no global store needed. If history or user sessions are added later, Zustand is the recommended addition (zero config, hooks-first).
+Deploying
 
-### Animation System
+Vercel is the easiest option. Push to GitHub, connect the repo, done. The model weights in public/model/ get served from Vercel’s CDN and cached by the browser.
 
-All entrance animations follow the same pattern:
-```tsx
-initial={{ opacity: 0, y: 30 }}
-whileInView={{ opacity: 1, y: 0 }}
-viewport={{ once: true }}
-transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-```
+No environment variables needed. Everything is static.
 
-Hover lifts use `whileHover={{ y: -4 }}`. This consistency makes the product feel intentional.
+Course info
 
-### Background System
-
-Three layers:
-1. CSS gradient (base lavender-to-white)
-2. CSS animated aurora blobs (two opposing radial gradients)
-3. Canvas particle system (60 nodes, neural net lines between nearby pairs)
-
-Performance: particles run at ~60fps via `requestAnimationFrame`, pause when tab is hidden, and reduce count on small screens.
-
----
-
-## UI/UX Philosophy
-
-**One primary action per screen.** The upload zone is the only thing that matters on the Predict section.
-
-**Animate meaning, not decoration.** Every animation communicates state change. Confidence bars filling = "here's the answer." Neural orbit = "the model is working."
-
-**Honest about uncertainty.** Confidence scores below 65% show an amber warning. Low recall classes are clearly visible in the per-class chart.
-
-**Accessible by default.** Every interactive element has focus states. The confusion matrix has ARIA labels. Color is never the only signal.
-
----
-
-## Mock Data Strategy
-
-All mock data in `mock-data/index.ts` reflects realistic CIFAR-10 CNN outputs:
-
-- **78.4% test accuracy** — achievable baseline CNN on CIFAR-10 with augmentation
-- **Confusion matrix** — cat/dog/deer/horse rows show higher off-diagonal values, matching known model weaknesses
-- **Validation runs** — confidence scores vary between 58–94% to demonstrate realistic variance
-- **Training curves** — show correct convergence behavior (decreasing loss, narrowing train/val gap)
-
----
-
-## Backend Integration Plan
-
-When the FastAPI backend is ready, replace `mock-data/index.ts` with API calls:
-
-```
-POST /api/predict
-  Input:  multipart/form-data { image: File }
-  Output: { class: string, confidence: number, all_scores: number[], inference_ms: number }
-
-GET /api/metrics
-  Output: { accuracy, precision, recall, f1, confusion_matrix, per_class_accuracy }
-```
-
-The `UploadPredict` component calls `runInference()` — replace its internals with a `fetch('/api/predict', ...)` and the rest of the UI stays identical.
-
----
-
-## TensorFlow / FastAPI Integration Plan
-
-```
-TensorFlow (Python, Google Colab)
-  → Train CNN on CIFAR-10 (20 epochs, Adam, categorical_crossentropy)
-  → Save as model.keras
-
-FastAPI (Python)
-  → Load model once at startup
-  → POST /api/predict: receive image → resize to 32×32 → normalize → model.predict()
-  → Return JSON with class name + softmax probabilities
-
-Next.js Frontend
-  → Replace mock randomPrediction() with fetch to FastAPI endpoint
-  → No other changes needed
-```
-
-Deployment stack:
-- Frontend → **Vercel** (free, instant CI/CD)
-- Backend → **Railway** or **Render** (free tier FastAPI hosting)
-
----
-
-## Deployment
-
-### Vercel (Recommended)
-
-```bash
-npm install -g vercel
-vercel
-```
-
-Vercel auto-detects Next.js and deploys with zero config. Every `git push` to `main` triggers a new deploy.
-
-### Environment Variables (for future backend)
-
-```env
-NEXT_PUBLIC_API_URL=https://your-fastapi.railway.app
-```
-
----
-
-## Project Info
-
-- **Course:** ICT 120 — BSCS 3B
-- **Dataset:** CIFAR-10 (Krizhevsky, 2009)
-- **Model:** Custom CNN + experiments (Dropout, Augmentation, MobileNetV2 transfer learning)
-- **Frontend Status:** Complete prototype with mock data
-- **Backend Status:** In progress — TensorFlow training complete, FastAPI integration pending
-
----
-
-<div align="center">
-  <p><em>"This doesn't look like a student project."</em></p>
-  <p>That was the goal.</p>
-</div>
+|         |                                                  |
+|---------|--------------------------------------------------|
+|Course   |ICT 120 — Intelligent Systems                     |
+|Section  |BSCS 3B                                           |
+|Dataset  |CIFAR-10                                          |
+|Model    |Custom CNN, trained from scratch                  |
+|Frontend |Next.js 15 · TypeScript · Tailwind · Framer Motion|
+|Inference|TensorFlow.js 4.22 · WebGL · in-browser           |
